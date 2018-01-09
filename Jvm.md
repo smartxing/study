@@ -175,7 +175,7 @@ jvm 调优 一般是最后的调优手段了
 查看系统属性:                          /jinfo -sysprops 14750
 ###  jstack: 
 查看堆栈                              /bin/jstack -l 14750
-###  jstat:
+###  [jstat](http://blog.csdn.net/zhaozheng7758/article/details/8623549):
 查看gc的信息:                         /bin/jstat -gcutil 14750
 ###  jmap&mat
 空间中各个年龄段的空间的使用情况:        /bin/jmap -heap 14750
