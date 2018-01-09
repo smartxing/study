@@ -77,6 +77,73 @@ example：-Xmn1024m -Xms2500m -Xmx2500m -XX:+UseConcMarkSweepGC -XX:CMSInitiatin
 
 ```
 ## gc日志分析
+[cmsgc](https://blogs.oracle.com/poonam/understanding-cms-gc-logs)
+
+```html
+
+
+82551.569:[GC [1 CMS-initial-mark: 2027280K(2516992K)] 2084513K(3088576K), 0.0344000secs] [Times: user=0.03 sys=0.01, real=0.03 secs]
+
+第一阶段：初始标记阶段（Initial mark）标志着CMS收集老生代（Old Generation）的开始，所有从根部直接可达的对象会被标记，此时其他线程被阻断，这个阶段称为stop-the-world。此记录中，老生代的大小是2516992K，CMS在占用内存达到2027280K时触发，初始标记引起的pause time是0.0344s。 
+
+
+82551.604:[CMS-concurrent-mark-start]
+
+第二阶段：并发标记阶段（concurrent mark），所有第一个阶段被停掉的线程重新启动，此阶段内，从第一阶段标记对象出发所有间接可达的对象将被标记。
+
+
+82553.887:[CMS-concurrent-mark: 2.272/2.283 secs] [Times: user=5.27 sys=0.14, real=2.29secs]
+
+并发标记消耗2.272s CPU时间和2.283s 实际时间，实际时间包含CPU时间和阻断其他线程的时间。
+
+
+82553.887:[CMS-concurrent-preclean-start]
+
+第三阶段：并发预清理阶段（concurrent preclean），目的是减轻下一个阶段：重标记（remark）的工作量，因为预清理是并发的，而重标记是stop-the-world的，这样可以减小对其他线程的影响。此阶段内，收集器查看在并发标记过程中，CMS堆内得到晋升（promotion）的对象。
+
+82553.928:[CMS-concurrent-preclean: 0.040/0.041 secs] [Times: user=0.04 sys=0.00,real=0.04 secs]
+
+并发预清理消耗0.040s CPU时间和0.041s实际时间。
+
+82553.929:[CMS-concurrent-abortable-preclean-start]
+
+CMS: abort preclean due to time 82558.942: [CMS-concurrent-abortable-preclean: 1.311/5.014secs] [Times: user=1.41 sys=0.05, real=5.01 secs]
+
+
+
+82558.959:[GC[YG occupancy: 338653 K (571584 K)]82558.959: [Rescan (parallel) , 0.3058990secs]82559.265: [weak refs processing, 0.0667480 secs]82559.332: [classunloading, 0.0868270 secs]82559.419: [scrub symbol & string tables,0.1176240 secs] [1 CMS-remark: 2027283K(2516992K)] 2365936K(3088576K),0.6602340 secs] [Times: user=4.88 sys=0.37, real=0.66 secs]
+
+第四阶段：经过了并发预清理阶段，可中断预清理（abortable preclean）开始了（笔者不确定这么翻译是否合理）。从上面的记录可以看出，新生代的容量是571584K，新生代占有内存达到338653K时此预清理过程就被中断了，重标记阶段开始，由于重标记是stop-the-world的，所以其他线程被阻断。
+
+第五阶段：重标记（remark）阶段，此阶段重新扫描CMS堆中剩余的且状态更新过的对象，重新从根部遍历，并且执行被引用的对象。这里，重扫描消耗0.3058990s，弱引用对象执行消耗0.667480s，重标记总体消耗了0.6602340s。
+
+需要说明的是：如果新生代中Eden的占有内存达到了参数XX:CMSScheduleRemarkEdenSizeThreschold=<n>的值，可中断预清理就会启动，直到Eden占有内存达到参数XX:CMSScheduleRemarkEdenPenetration=<n>才会结束，所以说它是可以被中断的。如果它执行的时间超过了参数XX:CMSMaxAbortablePrecleanTime的值，无论如何也是会立即停止的。以上这些参数是为了限制预清理执行时间过长，但是预清理减轻了重标记的工作量。
+
+
+82559.619:[CMS-concurrent-sweep-start]
+
+第六阶段：并发清理阶段，重标记过后CMS开始清理没有标记的也就是已经死亡的对象。这一过程不会阻断其他进程。所用时间如下一条记录所示。
+
+82560.976:[CMS-concurrent-sweep: 1.320/1.357 secs] [Times: user=1.76 sys=0.23, real=1.36secs]
+
+
+
+82560.976:[CMS-concurrent-reset-start]
+
+82561.000:[CMS-concurrent-reset: 0.024/0.024 secs] [Times: user=0.02 sys=0.00, real=0.02secs]
+
+第七阶段：重置阶段，CMS内数据再一次初始化，进入下一个清理循环，重置消耗0.024s。
+
+
+下面是两种清理错误的情况：promotion failed和concurrentmode failure。
+
+250169.767:[GC 250169.767: [ParNew (promotion failed): 571584K->571584K(571584K),0.6487910 secs]250170.416: [CMS250173.050: [CMS-concurrent-mark: 2.887/3.777 secs][Times: user=10.86 sys=0.56, real=3.78 secs]
+
+(concurrentmode failure): 2268975K->2111899K(2516992K), 8.3732150 secs]2766660K->2111899K(3088576K), [CMS Perm : 562899K->562896K(1048576K)],9.0223120 secs] [Times: user=9.78 sys=0.28, real=9.02 secs]
+
+promotion failure表示从新生代晋升到老生代时发生了错误，因为老生代内存占用快满了，所以放不下晋升上来的对象。
+有时promotion failure会引起concurrentmode failure，原因还是老生代内存不够用了，这样就引起了Full GC，也就是记录中的CMS Perm，Full GC是一个stop-the-world的过程。
+```
 ![ygc](https://github.com/smartxing/study/blob/master/image/ygc.png)
 ![fullgc](https://github.com/smartxing/study/blob/master/image/fullgc.png)
 
