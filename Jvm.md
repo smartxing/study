@@ -2,29 +2,25 @@
 ![内存](https://github.com/smartxing/study/blob/master/image/vm.png)
 #### 1 新生代（YoungGeneration）：大多数对象在新生代中被创建，其中很多对象的生命周期很短。每次新生代的垃圾回收（又称Minor GC）后只有少量对象存活，所以选用复制算法，只需要少量的复制成本就可以完成回收。新生代内又分三个区：一个Eden区，两个Survivor区（一般而言），大部分对象在Eden区中生成。当Eden区满时，还存活的对象将被复制到两个Survivor区（中的一个）。当这个Survivor区满时，此区的存活且不满足“晋升”条件的对象将被复制到另外一个Survivor区。对象每经历一次Minor GC，年龄加1，达到“晋升年龄阈值”后，被放到老年代，这个过程也称为“晋升”。显然，“晋升年龄阈值”的大小直接影响着对象在新生代中的停留时间，在Serial和ParNew GC两种回收器中，“晋升年龄阈值”通过参数MaxTenuringThreshold设定，默认值为15。             
 #### 2 老年代（OldGeneration）：在新生代中经历了N次垃圾回收后仍然存活的对象，就会被放到年老代，该区域中对象存活率高。老年代的垃圾回收（又称Major GC）通常使用“标记-清理”或“标记-整理”算法。整堆包括新生代和老年代的垃圾回收称为Full GC（HotSpot VM里，除了CMS之外，其它能收集老年代的GC都会同时收集整个GC堆，包括新生代）。               
-#### 3 永久代（PermGeneration）：主要存放元数据，例如Class、Method的元信息，与垃圾回收要回收的Java对象关系不大。相对于新生代和年老代来说，该区域的划分对垃圾回收影响比较小。              
+#### 3 永久代（PermGeneration）：java8已经改成元空间(Metaspace) 主要存放元数据，例如Class、Method的元信息，与垃圾回收要回收的Java对象关系不大。相对于新生代和年老代来说，该区域的划分对垃圾回收影响比较小。              
 
 ## 类加载
 ### 类加载子系统
 JVM的类加载是通过ClassLoader及其子类来完成的，类的层次关系和加载顺序可以由下图来描述：
 ![PNG](https://github.com/smartxing/study/blob/master/image/apploader.png)
 
-1. 
-Bootstrap ClassLoader负责加载$JAVA_HOME/jre/lib里所有的类库到内存，Bootstrap ClassLoader是JVM级别的，由C++实现，不是ClassLoader的子类，开发者也无法直接获取到启动类加载器的引用，所以不允许直接通过引用进行操作。
+```html
+    1.Bootstrap ClassLoader负责加载$JAVA_HOME/jre/lib里所有的类库到内存，Bootstrap ClassLoader是JVM级别的，由C++实现，不是ClassLoader的子类，开发者也无法直接获取到启动类加载器的引用，所以不允许直接通过引用进行操作。
 
-1. 
-Extension ClassLoader负责加载java平台中扩展功能的一些jar包，主要是由    sun.misc.Launcher$ExtClassLoader实现的，是一个java类，继承自URLClassLoader超类。它将负责%JRE_HOME/lib/ext目录下的jar和class加载到内存，开发者可以直接使用该加载器。
+    2.Extension ClassLoader负责加载java平台中扩展功能的一些jar包，主要是由    sun.misc.Launcher$ExtClassLoader实现的，是一个java类，继承自URLClassLoader超类。它将负责%JRE_HOME/lib/ext目录下的jar和class加载到内存，开发者可以直接使用该加载器。
 
-1. 
-App ClassLoader负责加载环境变量classpath中指定的jar包及目录中class到内存中，开发者也可以直接使用系统类加载器。
+    3.App ClassLoader负责加载环境变量classpath中指定的jar包及目录中class到内存中，开发者也可以直接使用系统类加载器。
 
-1. 
-Custom ClassLoader属于应用程序根据自身需要自定义的ClassLoader(一般为java.lang.ClassLoader的子类)在程序运行期间，通过java.lang.ClassLoader的子类动态加载class文件，体现java动态实时类装入特性，如tomcat、jboss都会根据j2ee规范自行实现ClassLoader。自定义ClassLoader在某些应用场景还是比较适用，特别是需要灵活地动态加载class的时候。
-
-全盘负责委托机制，自顶向下加载。每次只要一个class被loaded，系统的class loader就首先被调用。然而它不会立即去load这个这个类。取而代之的是，他会把这个task委托给他的parent class loader，也就是extension class loader;同样的，extension class loader也会委托给它的parent class loader也就是bootstrap class loader。
-因此，bootstrap class loader总是被给第一个去load class的机会。如果bootstrap class loader找不到类的话，那么extension class loader将会load，如果extension class loader也没有找到对应的类的话，system class loader将会执行这个task，如果system class loader也没有找到的话，java.lang.ClassNotFoundException将会被抛出。另外一个原因是避免了重复加载类，
-每一次都是从底向上检查类是否已经被加载，然后从顶向下加载类，保证每一个类只被加载一次。
-
+    4.Custom ClassLoader属于应用程序根据自身需要自定义的ClassLoader(一般为java.lang.ClassLoader的子类)在程序运行期间，通过java.lang.ClassLoader的子类动态加载class文件，体现java动态实时类装入特性，如tomcat、jboss都会根据j2ee规范自行实现ClassLoader。自定义ClassLoader在某些应用场景还是比较适用，特别是需要灵活地动态加载class的时候。
+    全盘负责委托机制，自顶向下加载。每次只要一个class被loaded，系统的class loader就首先被调用。然而它不会立即去load这个这个类。取而代之的是，他会把这个task委托给他的parent class loader，也就是extension class loader;同样的，extension class loader也会委托给它的parent class loader也就是bootstrap class loader。
+    因此，bootstrap class loader总是被给第一个去load class的机会。如果bootstrap class loader找不到类的话，那么extension class loader将会load，如果extension class loader也没有找到对应的类的话，system class loader将会执行这个task，如果system class loader也没有找到的话，java.lang.ClassNotFoundException将会被抛出。另外一个原因是避免了重复加载类，
+    每一次都是从底向上检查类是否已经被加载，然后从顶向下加载类，保证每一个类只被加载一次。
+```
 加载顺序
 ![classloader](https://github.com/smartxing/study/blob/master/image/classloader.png)
 
@@ -77,70 +73,36 @@ example：-Xmn1024m -Xms2500m -Xmx2500m -XX:+UseConcMarkSweepGC -XX:CMSInitiatin
 
 ```
 ## gc日志分析
-[cmsgc](https://blogs.oracle.com/poonam/understanding-cms-gc-logs)
+[understanding-cms-gc-logs](https://blogs.oracle.com/poonam/understanding-cms-gc-logs)
 
 ```html
 
 
 82551.569:[GC [1 CMS-initial-mark: 2027280K(2516992K)] 2084513K(3088576K), 0.0344000secs] [Times: user=0.03 sys=0.01, real=0.03 secs]
-
 第一阶段：初始标记阶段（Initial mark）标志着CMS收集老生代（Old Generation）的开始，所有从根部直接可达的对象会被标记，此时其他线程被阻断，这个阶段称为stop-the-world。此记录中，老生代的大小是2516992K，CMS在占用内存达到2027280K时触发，初始标记引起的pause time是0.0344s。 
-
-
 82551.604:[CMS-concurrent-mark-start]
-
 第二阶段：并发标记阶段（concurrent mark），所有第一个阶段被停掉的线程重新启动，此阶段内，从第一阶段标记对象出发所有间接可达的对象将被标记。
-
-
 82553.887:[CMS-concurrent-mark: 2.272/2.283 secs] [Times: user=5.27 sys=0.14, real=2.29secs]
-
 并发标记消耗2.272s CPU时间和2.283s 实际时间，实际时间包含CPU时间和阻断其他线程的时间。
-
-
 82553.887:[CMS-concurrent-preclean-start]
-
 第三阶段：并发预清理阶段（concurrent preclean），目的是减轻下一个阶段：重标记（remark）的工作量，因为预清理是并发的，而重标记是stop-the-world的，这样可以减小对其他线程的影响。此阶段内，收集器查看在并发标记过程中，CMS堆内得到晋升（promotion）的对象。
-
 82553.928:[CMS-concurrent-preclean: 0.040/0.041 secs] [Times: user=0.04 sys=0.00,real=0.04 secs]
-
 并发预清理消耗0.040s CPU时间和0.041s实际时间。
-
 82553.929:[CMS-concurrent-abortable-preclean-start]
-
 CMS: abort preclean due to time 82558.942: [CMS-concurrent-abortable-preclean: 1.311/5.014secs] [Times: user=1.41 sys=0.05, real=5.01 secs]
-
-
-
 82558.959:[GC[YG occupancy: 338653 K (571584 K)]82558.959: [Rescan (parallel) , 0.3058990secs]82559.265: [weak refs processing, 0.0667480 secs]82559.332: [classunloading, 0.0868270 secs]82559.419: [scrub symbol & string tables,0.1176240 secs] [1 CMS-remark: 2027283K(2516992K)] 2365936K(3088576K),0.6602340 secs] [Times: user=4.88 sys=0.37, real=0.66 secs]
-
 第四阶段：经过了并发预清理阶段，可中断预清理（abortable preclean）开始了（笔者不确定这么翻译是否合理）。从上面的记录可以看出，新生代的容量是571584K，新生代占有内存达到338653K时此预清理过程就被中断了，重标记阶段开始，由于重标记是stop-the-world的，所以其他线程被阻断。
-
 第五阶段：重标记（remark）阶段，此阶段重新扫描CMS堆中剩余的且状态更新过的对象，重新从根部遍历，并且执行被引用的对象。这里，重扫描消耗0.3058990s，弱引用对象执行消耗0.667480s，重标记总体消耗了0.6602340s。
-
 需要说明的是：如果新生代中Eden的占有内存达到了参数XX:CMSScheduleRemarkEdenSizeThreschold=<n>的值，可中断预清理就会启动，直到Eden占有内存达到参数XX:CMSScheduleRemarkEdenPenetration=<n>才会结束，所以说它是可以被中断的。如果它执行的时间超过了参数XX:CMSMaxAbortablePrecleanTime的值，无论如何也是会立即停止的。以上这些参数是为了限制预清理执行时间过长，但是预清理减轻了重标记的工作量。
-
-
 82559.619:[CMS-concurrent-sweep-start]
-
 第六阶段：并发清理阶段，重标记过后CMS开始清理没有标记的也就是已经死亡的对象。这一过程不会阻断其他进程。所用时间如下一条记录所示。
-
 82560.976:[CMS-concurrent-sweep: 1.320/1.357 secs] [Times: user=1.76 sys=0.23, real=1.36secs]
-
-
-
 82560.976:[CMS-concurrent-reset-start]
-
 82561.000:[CMS-concurrent-reset: 0.024/0.024 secs] [Times: user=0.02 sys=0.00, real=0.02secs]
-
 第七阶段：重置阶段，CMS内数据再一次初始化，进入下一个清理循环，重置消耗0.024s。
-
-
 下面是两种清理错误的情况：promotion failed和concurrentmode failure。
-
 250169.767:[GC 250169.767: [ParNew (promotion failed): 571584K->571584K(571584K),0.6487910 secs]250170.416: [CMS250173.050: [CMS-concurrent-mark: 2.887/3.777 secs][Times: user=10.86 sys=0.56, real=3.78 secs]
-
 (concurrentmode failure): 2268975K->2111899K(2516992K), 8.3732150 secs]2766660K->2111899K(3088576K), [CMS Perm : 562899K->562896K(1048576K)],9.0223120 secs] [Times: user=9.78 sys=0.28, real=9.02 secs]
-
 promotion failure表示从新生代晋升到老生代时发生了错误，因为老生代内存占用快满了，所以放不下晋升上来的对象。
 有时promotion failure会引起concurrentmode failure，原因还是老生代内存不够用了，这样就引起了Full GC，也就是记录中的CMS Perm，Full GC是一个stop-the-world的过程。
 ```
