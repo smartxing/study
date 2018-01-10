@@ -1,4 +1,5 @@
 ## jvm 内存模型
+### 这些其实是老生常谈的事情了，这边就写写要掌握的知识点 ，网上搜一下太多了
 ![内存](https://github.com/smartxing/study/blob/master/image/vm.png)
  ```html
  1 新生代（YoungGeneration）：大多数对象在新生代中被创建，其中很多对象的生命周期很短。每次新生代的垃圾回收（又称Minor GC）后只有少量对象存活，所以选用复制算法，只需要少量的复制成本就可以完成回收。新生代内又分三个区：一个Eden区，两个Survivor区（一般而言），大部分对象在Eden区中生成。当Eden区满时，还存活的对象将被复制到两个Survivor区（中的一个）。当这个Survivor区满时，此区的存活且不满足“晋升”条件的对象将被复制到另外一个Survivor区。对象每经历一次Minor GC，年龄加1，达到“晋升年龄阈值”后，被放到老年代，这个过程也称为“晋升”。显然，“晋升年龄阈值”的大小直接影响着对象在新生代中的停留时间，在Serial和ParNew GC两种回收器中，“晋升年龄阈值”通过参数MaxTenuringThreshold设定，默认值为15。             
@@ -160,7 +161,7 @@ jstack pid |grep tid -A 30 既可以找到cpu耗时最高的
 
 
 ## 案例
-[美团](https://tech.meituan.com/jvm_optimize.html) 把核心的东西都写在外面了
+[美团案例](https://tech.meituan.com/jvm_optimize.html) 把核心的东西都写在外面了
 ```html
 1 增大新生代 减少对象复制时间
 2 增大CMSScavengeBeforeRemark 由于跨代引用的存在，CMS在Remark阶段必须扫描整个堆，同时为了避免扫描时新生代有很多对象，增加了可中断的预清理阶段用来等待Minor GC的发生。只是该阶段有时间限制，如果超时等不到Minor GC，Remark时新生代仍然有很多对象，我们的调优策略是，通过参数强制Remark前进行一次Minor GC，从而降低Remark阶段的时间。
