@@ -32,3 +32,20 @@
 ## es 一致性解决 乐观锁（_version）
 
     第创建一个document的时候，它的_version内部版本号就是1；以后，每次对这个document执行修改或者删除操作，都会对这个_version版本号自动加1；哪怕是删除，也会对这条数据的版本号加1
+    {
+      "_index": "ecommerce",
+      "_type": "product",
+      "_id": "1",
+      "_version": 1,
+      "found": true,
+      "_source": {
+        "name": "gaolujie yagao",
+        "desc": "gaoxiao meibai",
+        "price": 30,
+        "producer": "jiaqiangban gaolujie yagao producer",
+        "tags": [
+          "meibai",
+          "fangzhu"
+        ]
+      }
+    }
