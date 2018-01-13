@@ -2,3 +2,4 @@
  ### 2 [查询curd](https://github.com/smartxing/study/blob/master/es/query.md)
  ### 3 [query dsl](https://github.com/smartxing/study/blob/master/es/query2.md)
  ### 4 [aggs(聚合查询)](https://github.com/smartxing/study/blob/master/es/query2.md)
+ ### 4 [shard&replica](https://github.com/smartxing/study/blob/master/es/shard.md)
